@@ -49,10 +49,10 @@ export function ResumeSection({ resumeUrl, isEditable, userId }: ResumeSectionPr
 
   const fetchResumeFiles = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const id = userId || (await supabase.auth.getUser()).data?.user?.id;
+      if (!id) return;
 
-      const userFolder = `resumes/${user.id}`;
+      const userFolder = `resumes/${id}`;
       const { data: files, error } = await supabase.storage
         .from('resume')
         .list(userFolder);
@@ -78,19 +78,26 @@ export function ResumeSection({ resumeUrl, isEditable, userId }: ResumeSectionPr
           })
         );
 
-        // Sort by creation date, newest first
-        filesWithUrls.sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
+      filesWithUrls.sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
 
-        setResumeFiles(filesWithUrls);
+      setResumeFiles(filesWithUrls);
+
+      const latestResume = filesWithUrls[0];
+      if (latestResume) {
+        await supabase
+          .from('members')
+          .update({ resume_url: latestResume.publicUrl })
+          .eq('id', id);
       }
-    } catch (error) {
-      console.error('Error fetching resume files:', error);
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching resume files:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -221,10 +228,33 @@ export function ResumeSection({ resumeUrl, isEditable, userId }: ResumeSectionPr
               Last updated: {new Date().toLocaleDateString()}
             </p>
           </div>
-          <Button variant="ghost" size="sm" asChild>
-            <a href={resumeUrl} target="_blank" rel="noopener noreferrer">
-              View
-            </a>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={async () => {
+              if (!resumeUrl) {
+                toast({
+                  title: "Resume not found",
+                  description: "User has no versions of resumes to view and export.",
+                  variant: "destructive",
+                  duration: 5000,
+                });
+                return;
+              }
+              const res = await fetch(resumeUrl, { method: "HEAD" });
+              if (res.ok) {
+                window.open(resumeUrl, "_blank", "noopener,noreferrer");
+              } else {
+                toast({
+                  title: "Resume not found",
+                  description: "User has no versions of resumes to view and export.",
+                  variant: "destructive",
+                  duration: 5000,
+                });
+              }
+            }}
+          >
+            View
           </Button>
         </div>
       </div>
