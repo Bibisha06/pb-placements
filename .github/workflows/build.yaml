@@ -10,7 +10,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-test:
+    if: github.repository == 'pbdsce/pb-placements'
     runs-on: ubuntu-latest
     env:
       NODE_VERSION: 18.x

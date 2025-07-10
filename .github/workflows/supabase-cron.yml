@@ -6,7 +6,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  ping-database:
+  keep-supabase-db-active:
+    if: github.repository == 'pbdsce/pb-placements'
     runs-on: ubuntu-latest
     
     steps:
