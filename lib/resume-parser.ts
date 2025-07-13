@@ -159,6 +159,47 @@ export async function extractTextFromPDF(pdfBuffer: ArrayBuffer): Promise<{ text
 }
 
 /**
+ * Utility function to retry API calls with simple fixed delay
+ * @param fn Function to retry
+ * @param maxRetries Maximum number of retries
+ * @param delay Delay in milliseconds between retries
+ * @returns Promise with the result of the function
+ */
+async function retryWithDelay<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  delay: number = 3000
+): Promise<T> {
+  let lastError: Error;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      
+      // Check if it's a rate limit or overload error
+      const isRetryableError = 
+        error instanceof Error && (
+          error.message.includes('overloaded') ||
+          error.message.includes('rate limit') ||
+          error.message.includes('503') ||
+          error.message.includes('429') ||
+          error.message.includes('quota exceeded')
+        );
+      
+      if (attempt === maxRetries || !isRetryableError) {
+        throw lastError;
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError!;
+}
+
+/**
  * Uses Gemini API to analyze the resume text and extract relevant information
  */
 export async function analyzeWithGemini(text: string, extractedLinks: string[] = []): Promise<ParsedResumeData> {
@@ -220,40 +261,42 @@ export async function analyzeWithGemini(text: string, extractedLinks: string[] =
     }
   `;
 
-  const result = await model.generateContent(prompt);
-  const response = result.response;
-  const jsonStr = response.text().replace(/```json\n?|\n?```/g, '').trim();
-  
-  try {
-    const parsed = JSON.parse(jsonStr);
-
-    // Calculate year of study based on graduation year
-    let yearOfStudy: number | undefined;
-    if (parsed.graduation_year) {
-      const currentYear = new Date().getFullYear();
-      const yearsRemaining = parsed.graduation_year - currentYear;
-      if (yearsRemaining >= 1 && yearsRemaining <= 4) {
-        yearOfStudy = yearsRemaining;
-      }
-    }
+  return retryWithDelay(async () => {
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const jsonStr = response.text().replace(/```json\n?|\n?```/g, '').trim();
     
-    return {
-      name: parsed.name || '',
-      email: parsed.email || '',
-      skills: parsed.skills || [],
-      domain: parsed.domain,
-      year: yearOfStudy,
-      achievements: (parsed.achievements || []),
-      experiences: (parsed.experiences || []),
-      certifications: (parsed.certifications || []),
-      projects: (parsed.projects || []),
-      github_url: parsed.github_url,
-      linkedin_url: parsed.linkedin_url,
-      extracted_links: extractedLinks
-    };
-  } catch (e) {
-    throw new Error('Failed to parse Gemini response: ' + e);
-  }
+    try {
+      const parsed = JSON.parse(jsonStr);
+
+      // Calculate year of study based on graduation year
+      let yearOfStudy: number | undefined;
+      if (parsed.graduation_year) {
+        const currentYear = new Date().getFullYear();
+        const yearsRemaining = parsed.graduation_year - currentYear;
+        if (yearsRemaining >= 1 && yearsRemaining <= 4) {
+          yearOfStudy = yearsRemaining;
+        }
+      }
+      
+      return {
+        name: parsed.name || '',
+        email: parsed.email || '',
+        skills: parsed.skills || [],
+        domain: parsed.domain,
+        year: yearOfStudy,
+        achievements: (parsed.achievements || []),
+        experiences: (parsed.experiences || []),
+        certifications: (parsed.certifications || []),
+        projects: (parsed.projects || []),
+        github_url: parsed.github_url,
+        linkedin_url: parsed.linkedin_url,
+        extracted_links: extractedLinks
+      };
+    } catch (e) {
+      throw new Error('Failed to parse Gemini response: ' + e);
+    }
+  }, 3, 3000); // 3 retries with 3 second base delay
 }
 
 /**
