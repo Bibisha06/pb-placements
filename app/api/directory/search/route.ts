@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MemberService } from '@/lib/db';
+import { createClient } from '@supabase/supabase-js';
 
 // Helper function to convert year string to number
 const convertYearToNumber = (year: string): number => {
@@ -28,8 +29,12 @@ export async function GET(request: NextRequest) {
       .filter((y) => !isNaN(y));
     const skills = searchParams.getAll('skills').filter(Boolean);
 
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     // Fetch filtered members
-    const results = await MemberService.searchMembers(search, domains, years, skills);
+    const results = await MemberService.searchMembers(supabase, search, domains, years, skills);
 
     return NextResponse.json({
       success: true,
