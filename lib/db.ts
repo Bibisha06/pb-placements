@@ -1,10 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
-
 // Type definitions for our database models
 export interface Member {
   id: string;
@@ -14,8 +9,12 @@ export interface Member {
   domain: string;
   year_of_study: number;
   resume_url: string;
-  created_at: Date;
-  updated_at: Date;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MemberWithSkills extends Member {
+  skills: string[];
 }
 
 export interface Skill {
@@ -33,7 +32,7 @@ export interface Achievement {
   member_id: string;
   title: string;
   description: string;
-  date: Date;
+  date: string;
 }
 
 export interface Experience {
@@ -42,8 +41,8 @@ export interface Experience {
   company: string;
   role: string;
   description: string;
-  start_date: Date;
-  end_date: Date | null;
+  start_date: string;
+  end_date: string | null;
   is_current: boolean;
 }
 
@@ -81,7 +80,7 @@ export async function initializeDatabase() {
 
 // Member database operations
 export const MemberService = {
-  async getAllMembers() {
+  async getAllMembers(supabase: any) {
     const { data, error } = await supabase
       .from('members')
       .select(`
@@ -96,13 +95,13 @@ export const MemberService = {
 
     if (error) throw error;
 
-    return data.map(member => ({
+    return data.map((member: any) => ({
       ...member,
       skills: member.member_skills?.map((ms: any) => ms.skills?.name).filter(Boolean) || []
     }));
   },
 
-  async getMemberById(id: string) {
+  async getMemberById(supabase: any, id: string) {
     const { data: member, error: memberError } = await supabase
       .from('members')
       .select('*')
@@ -116,7 +115,7 @@ export const MemberService = {
     // Fetch skills
     const { data: memberSkills } = await supabase
       .from('member_skills')
-      .select('skill_id, skills(name)')
+      .select('skills(name)')
       .eq('member_id', id);
     const skills = memberSkills?.map((ms: any) => ms.skills?.name).filter(Boolean) || [];
 
@@ -162,10 +161,10 @@ export const MemberService = {
       certifications: certifications || [],
       projects: projects || [],
       resume_url: member.resume_url || null,
-    }
+    };
   },
 
-  async searchMembers(searchTerm: string, domains: string[], years: number[], skills: string[]) {
+  async searchMembers(supabase: any, searchTerm: string, domains: string[], years: number[], skills: string[]) {
     try {
       // Start with a base query that includes all related data
       let query = supabase
@@ -195,20 +194,16 @@ export const MemberService = {
       if (error) throw error;
 
       // Process the results
-      let results = data.map(member => ({
+      let results: MemberWithSkills[] = data.map((member: any) => ({
         ...member,
         skills: member.member_skills?.map((ms: any) => ms.skills?.name).filter(Boolean) || [],
-        year_of_study: member.year_of_study === 1 ? '1st' :
-                      member.year_of_study === 2 ? '2nd' :
-                      member.year_of_study === 3 ? '3rd' :
-                      'Alumni'
       }));
 
       // Handle search term - search across multiple fields INCLUDING skills
       if (searchTerm) {
         const terms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
-        
-        results = results.filter(member => {
+
+        results = results.filter((member: MemberWithSkills) => {
           return terms.some(term => {
             // Search in name, email, domain
             const searchInBasicFields = 
@@ -227,7 +222,7 @@ export const MemberService = {
       }
       // Filter by skills if specified
       if (skills && skills.length > 0) {
-        results = results.filter(member => 
+        results = results.filter((member: MemberWithSkills) => 
           skills.every(skill => member.skills.includes(skill))
         );
       }
@@ -239,7 +234,7 @@ export const MemberService = {
     }
   },
 
-  async createMember(member: Omit<Member, 'id' | 'created_at' | 'updated_at'>) {
+  async createMember(supabase: any, member: Omit<Member, 'id' | 'created_at' | 'updated_at'>) {
     console.log('Creating member with data:', member); // Debug log
 
     const { data, error } = await supabase
@@ -254,7 +249,7 @@ export const MemberService = {
     return data;
   },
 
-  async updateMember(id: string, member: Partial<Member>) {
+  async updateMember(supabase: any, id: string, member: Partial<Member>) {
     const { data, error } = await supabase
       .from('members')
       .update(member)
@@ -266,12 +261,12 @@ export const MemberService = {
     return data;
   },
 
-  async upsertMember(member: Member) {
+  async upsertMember(supabase: any, member: Partial<Member>) {
     console.log('Upserting member with data:', member); // Debug log
 
     const { data, error } = await supabase
       .from('members')
-      .upsert([member])
+      .upsert(member)
       .select()
       .single();
 
@@ -284,7 +279,7 @@ export const MemberService = {
 
 // Certification operations
 export const CertificationService = {
-  async getMemberCertifications(memberId: string) {
+  async getMemberCertifications(supabase: any, memberId: string) {
     const { data, error } = await supabase
       .from('certifications')
       .select('*')
@@ -294,7 +289,7 @@ export const CertificationService = {
     return data || [];
   },
 
-  async createCertification(certification: Omit<Certification, 'id'>) {
+  async createCertification(supabase: any, certification: Omit<Certification, 'id'>) {
     const { data, error } = await supabase
       .from('certifications')
       .insert(certification)
@@ -305,7 +300,7 @@ export const CertificationService = {
     return data;
   },
 
-  async createCertifications(certifications: Omit<Certification, 'id'>[]) {
+  async createCertifications(supabase: any, certifications: Omit<Certification, 'id'>[]) {
     const { data, error } = await supabase
       .from('certifications')
       .insert(certifications)
@@ -314,7 +309,7 @@ export const CertificationService = {
     return data;
   },
 
-  async removeCertificationsByMemberId(memberId: string) {
+  async removeCertificationsByMemberId(supabase: any, memberId: string) {
     const { error } = await supabase
       .from('certifications')
       .delete()
@@ -326,7 +321,7 @@ export const CertificationService = {
 
 // Skill database operations
 export const SkillService = {
-  async getAllSkills() {
+  async getAllSkills(supabase: any) {
     const { data, error } = await supabase
       .from('skills')
       .select('*')
@@ -336,7 +331,7 @@ export const SkillService = {
     return data;
   },
   
-  async getOrCreateSkill(name: string) {
+  async getOrCreateSkill(supabase: any, name: string) {
     name = name.trim();
     if (!name) return null;
 
@@ -359,8 +354,8 @@ export const SkillService = {
     return skill.id;
   },
   
-  async addSkillToMember(memberId: string, skillId: string) {
-    if (!memberId || !skillId) return false;
+  async addSkillToMember(supabase: any, memberId: string, skillId: string) {
+    if (!memberId || !skillId) return;
     
     const { error } = await supabase
       .from('member_skills')
@@ -372,7 +367,7 @@ export const SkillService = {
     return true;
   },
   
-  async removeSkillFromMember(memberId: string, skillId: string) {
+  async removeSkillFromMember(supabase: any, memberId: string, skillId: string) {
     const { error } = await supabase
       .from('member_skills')
       .delete()
@@ -381,17 +376,17 @@ export const SkillService = {
     if (error) throw error;
   },
   
-  async getMemberSkills(memberId: string) {
+  async getMemberSkills(supabase: any, memberId: string) {
     const { data, error } = await supabase
       .from('member_skills')
       .select('skills(id, name)')
       .eq('member_id', memberId);
     
     if (error) throw error;
-    return data?.map((item: any) => item.skills) || [];
+    return data?.map((item: any) => item.skills).filter(Boolean) || [];
   },
 
-  async removeSkillsByMemberId(memberId: string) {
+  async removeSkillsByMemberId(supabase: any, memberId: string) {
     const { error } = await supabase
       .from('member_skills')
       .delete()
@@ -402,7 +397,7 @@ export const SkillService = {
 
 // Achievement database operations
 export const AchievementService = {
-  async getMemberAchievements(memberId: string) {
+  async getMemberAchievements(supabase: any, memberId: string) {
     const { data, error } = await supabase
       .from('achievements')
       .select('*')
@@ -412,7 +407,7 @@ export const AchievementService = {
     return data;
   },
   
-  async createAchievement(achievement: Omit<Achievement, 'id'>) {
+  async createAchievement(supabase: any, achievement: Omit<Achievement, 'id'>) {
     const { data, error } = await supabase
       .from('achievements')
       .insert([achievement])
@@ -422,7 +417,7 @@ export const AchievementService = {
     return data;
   },
   
-  async createAchievements(achievements: Omit<Achievement, 'id'>[]) {
+  async createAchievements(supabase: any, achievements: Omit<Achievement, 'id'>[]) {
     const { data, error } = await supabase
       .from('achievements')
       .insert(achievements)
@@ -431,7 +426,7 @@ export const AchievementService = {
     return data;
   },
 
-  async deleteAchievement(achievementId: string) {
+  async deleteAchievement(supabase: any, achievementId: string) {
     const { error } = await supabase
       .from('achievements')
       .delete()
@@ -439,7 +434,7 @@ export const AchievementService = {
     if (error) throw error;
   },
 
-  async removeAchievementsByMemberId(memberId: string) {
+  async removeAchievementsByMemberId(supabase: any, memberId: string) {
     const { error } = await supabase
       .from('achievements')
       .delete()
@@ -450,7 +445,7 @@ export const AchievementService = {
 
 // Experience database operations
 export const ExperienceService = {
-  async getMemberExperiences(memberId: string) {
+  async getMemberExperiences(supabase: any, memberId: string) {
     const { data, error } = await supabase
       .from('experiences')
       .select('*')
@@ -459,7 +454,7 @@ export const ExperienceService = {
     return data;
   },
   
-  async createExperience(experience: Omit<Experience, 'id'>) {
+  async createExperience(supabase: any, experience: Omit<Experience, 'id'>) {
     const { data, error } = await supabase
       .from('experiences')
       .insert([experience])
@@ -469,7 +464,7 @@ export const ExperienceService = {
     return data;
   },
 
-  async createExperiences(experiences: Omit<Experience, 'id'>[]) {
+  async createExperiences(supabase: any, experiences: Omit<Experience, 'id'>[]) {
     const { data, error } = await supabase
       .from('experiences')
       .insert(experiences)
@@ -478,7 +473,7 @@ export const ExperienceService = {
     return data;
   },
 
-  async removeExperiencesByMemberId(memberId: string) {
+  async removeExperiencesByMemberId(supabase: any, memberId: string) {
     const { error } = await supabase
       .from('experiences')
       .delete()
@@ -489,7 +484,7 @@ export const ExperienceService = {
 
 // Link database operations
 export const LinkService = {
-  async getMemberLinks(memberId: string) {
+  async getMemberLinks(supabase: any, memberId: string) {
     const { data, error } = await supabase
       .from('links')
       .select('*')
@@ -498,7 +493,7 @@ export const LinkService = {
     return data;
   },
   
-  async createLink(link: Omit<Link, 'id'>) {
+  async createLink(supabase: any, link: Omit<Link, 'id'>) {
     const { data, error } = await supabase
       .from('links')
       .insert([link])
@@ -508,7 +503,7 @@ export const LinkService = {
     return data;
   },
 
-  async createLinks(links: Omit<Link, 'id'>[]) {
+  async createLinks(supabase: any, links: Omit<Link, 'id'>[]) {
     const { data, error } = await supabase
       .from('links')
       .insert(links)
@@ -517,7 +512,7 @@ export const LinkService = {
     return data;
   },
 
-  async removeLinksByMemberId(memberId: string) {
+  async removeLinksByMemberId(supabase: any, memberId: string) {
     const { error } = await supabase
       .from('links')
       .delete()
@@ -528,7 +523,7 @@ export const LinkService = {
 
 // Project database operations
 export const ProjectService = {
-  async getMemberProjects(memberId: string) {
+  async getMemberProjects(supabase: any, memberId: string) {
     const { data, error } = await supabase
       .from('projects')
       .select('*')
@@ -537,7 +532,7 @@ export const ProjectService = {
     return data || [];
   },
 
-  async createProject(project: Omit<Project, 'id'>) {
+  async createProject(supabase: any, project: Omit<Project, 'id'>) {
     const { data, error } = await supabase
       .from('projects')
       .insert([project])
@@ -547,7 +542,7 @@ export const ProjectService = {
     return data;
   },
 
-  async createProjects(projects: Omit<Project, 'id'>[]) {
+  async createProjects(supabase: any, projects: Omit<Project, 'id'>[]) {
     const { data, error } = await supabase
       .from('projects')
       .insert(projects)
@@ -556,7 +551,7 @@ export const ProjectService = {
     return data;
   },
 
-  async updateProject(id: string, project: Partial<Project>) {
+  async updateProject(supabase: any, id: string, project: Partial<Project>) {
     const { data, error } = await supabase
       .from('projects')
       .update(project)
@@ -567,7 +562,7 @@ export const ProjectService = {
     return data;
   },
 
-  async removeProject(id: string) {
+  async removeProject(supabase: any, id: string) {
     const { error } = await supabase
       .from('projects')
       .delete()
@@ -575,7 +570,7 @@ export const ProjectService = {
     if (error) throw error;
   },
 
-  async removeProjectsByMemberId(memberId: string) {
+  async removeProjectsByMemberId(supabase: any, memberId: string) {
     const { error } = await supabase
       .from('projects')
       .delete()
