@@ -286,24 +286,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
                   <TabsContent value="projects">
                     <div className="space-y-4 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
                       {projects.length > 0 ? (
-                        projects.map((project: Project) => (
-                          <div key={project.id} className="border-b border-gray-800 pb-4 last:border-0 last:pb-0">
-                            <h3 className="text-base font-semibold text-white">{project.name}</h3>
-                            {project.description && (
-                              <p className="text-gray-300 text-sm mt-2">{project.description}</p>
-                            )}
-                            {project.link && (
-                              <a 
-                                href={project.link} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-green-400 hover:underline text-sm inline-block mt-2"
-                              >
-                                View Project
-                              </a>
-                            )}
-                          </div>
-                        ))
+                        <ProjectSection projects={projects} isEditable={isCurrentUser} />
                       ) : (
                         <div className="text-center text-gray-400 text-sm py-6">
                           No projects information available
@@ -313,16 +296,9 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
                   </TabsContent>
 
                   <TabsContent value="certifications">
-                    <div className="space-y-4 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
+                    <div className="max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
                       {certifications.length > 0 ? (
-                        certifications.map((cert: Certification) => (
-                          <div key={cert.id} className="border-b border-gray-800 pb-4 last:border-0 last:pb-0">
-                            <h3 className="text-base  text-white">{cert.name}</h3>
-                            {cert.issuing_organization && (
-                              <p className="text-green-400 text-sm mt-1">{cert.issuing_organization}</p>
-                            )}
-                          </div>
-                        ))
+                        <CertificationSection certifications={certifications} />
                       ) : (
                         <div className="text-center text-gray-400 text-sm py-6">
                           No certifications information available
