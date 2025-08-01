@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MemberService, SkillService, ExperienceService, AchievementService, LinkService } from '@/lib/db';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,21 +13,26 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    
     // Fetch data for each member
     const membersData = [];
     
     for (const memberId of memberIds) {
-      const member = await MemberService.getMemberById(memberId);
+      const member = await MemberService.getMemberById(supabase, memberId);
       
       if (member) {
-        const skills = await SkillService.getMemberSkills(memberId);
-        const experiences = await ExperienceService.getMemberExperiences(memberId);
-        const achievements = await AchievementService.getMemberAchievements(memberId);
-        const links = await LinkService.getMemberLinks(memberId);
+        const skills = await SkillService.getMemberSkills(supabase, memberId);
+        const experiences = await ExperienceService.getMemberExperiences(supabase, memberId);
+        const achievements = await AchievementService.getMemberAchievements(supabase, memberId);
+        const links = await LinkService.getMemberLinks(supabase, memberId);
         
         membersData.push({
           ...member,
-          skills: skills.map(s => s.name),
+          skills: skills.map((s: any) => s.name),
           experiences,
           achievements,
           links,

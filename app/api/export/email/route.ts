@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MemberService } from '@/lib/db';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,10 +33,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const member = await MemberService.getMemberById(memberId);
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
+    const member = await MemberService.getMemberById(supabase, memberId);
 
     if (!member) {
-      console.warn(`[GMAIL_TEMPLATE] Member not found: ${memberId}`);
       return NextResponse.json(
         {
           success: false,
@@ -46,7 +51,6 @@ export async function POST(req: NextRequest) {
     }
 
     if (!member.resume_url) {
-      console.warn(`[GMAIL_TEMPLATE] Resume not found for member: ${memberId}`);
       return NextResponse.json(
         {
           success: false,
@@ -78,8 +82,6 @@ Best regards,
     const gmailDraftURL = `https://mail.google.com/mail/u/0/?view=cm&fs=1&to=&su=${encodeURIComponent(
       subject
     )}&body=${encodeURIComponent(body)}`;
-
-    console.log(`[GMAIL_TEMPLATE] Draft URL generated for member: ${memberId}`);
 
     return NextResponse.json({
       success: true,
