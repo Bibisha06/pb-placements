@@ -419,13 +419,10 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (!session || !session.user) throw new Error("Not authenticated");
 
     const token = session.access_token;
-    const memberId = isEditMode ? existingMemberId : session.user.id;
-    if (!memberId) throw new Error("User ID not found");
-
     let pictureUrl = picturePreview || '';
     if (profilePicture) {
       const fileExt = profilePicture.name.split('.').pop();
-      const fileName = `${memberId}-${Date.now()}.${fileExt}`;
+      const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage
         .from('profile-pictures')
         .upload(fileName, profilePicture);
@@ -466,7 +463,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     const payload = {
       member: {
-        id: memberId,
+        id: session.user.id,
         name: formData.name.trim(),
         email: formData.email.trim(),
         domain: formData.domain.trim(),
@@ -506,7 +503,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         : 'Your profile has been created.',
     });
 
-    router.push(`/profile/${memberId}`);
+    router.push(`/profile/${session.user.id}`);
   } catch (error: any) {
     toast({
       title: 'Error',

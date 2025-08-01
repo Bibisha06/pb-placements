@@ -9,20 +9,24 @@ import {
   AchievementService,
   CertificationService,
   LinkService,
-  ProjectService
+  ProjectService,
+  Link,
+  Experience,
+  Achievement,
+  Project,
+  Certification,
+  Skill
 } from "@/lib/db";
-import { ProfileHeader } from "@/components/profile/profile-header";
-import { SkillSection } from "@/components/profile/skill-section";
 import { ExperienceSection } from "@/components/profile/experience-section";
 import { AchievementSection } from "@/components/profile/achievement-section";
-import { CertificationSection } from "@/components/profile/certification-section";
 import { ResumeSection } from "@/components/profile/resume-section";
 import { ExportProfileButton } from "@/components/profile/export-profile-button";
 import { EditProfileButton } from "@/components/profile/edit-profile-button";
-import { ProjectSection } from '@/components/profile/project-section';
 import Image from "next/image";
 import { User } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SkillSection } from "@/components/profile/skill-section";
+
 
 interface ProfilePageProps {
   params: Promise<{
@@ -32,15 +36,15 @@ interface ProfilePageProps {
 
 export async function generateMetadata({ params }: ProfilePageProps): Promise<Metadata> {
   const { id } = await params;
+  const supabase = createServerComponentClient({ cookies });
   
-  let member = await MemberService.getMemberById(id);
+  let member = await MemberService.getMemberById(supabase, id);
   
   if (!member) {
     try {
-      const supabase = createServerComponentClient({ cookies });
       const { data: { user } } = await supabase.auth.getUser();
       if (user && (id === 'me' || id === user.id)) {
-        member = await MemberService.getMemberById(user.id);
+        member = await MemberService.getMemberById(supabase, user.id);
       }
     } catch (error) {
     }
@@ -63,12 +67,12 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   const supabase = createServerComponentClient({ cookies });
   const { data: { user } } = await supabase.auth.getUser();
   
-  let member = await MemberService.getMemberById(id);
+  let member = await MemberService.getMemberById(supabase, id);
   let actualMemberId = id;
   
   if (!member && user) {
     if (id === 'me' || id === user.id) {
-      member = await MemberService.getMemberById(user.id);
+      member = await MemberService.getMemberById(supabase, user.id);
       actualMemberId = user.id;
       
       if (!member && id === user.id) {
@@ -78,7 +82,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   }
   
   if (!member && user) {
-    const userProfile = await MemberService.getMemberById(user.id);
+    const userProfile = await MemberService.getMemberById(supabase, user.id);
     if (userProfile && id !== user.id) {
       redirect(`/profile/${user.id}`);
     }
@@ -98,12 +102,12 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   });
   
   // Fetch additional profile data
-  const skills = await SkillService.getMemberSkills(actualMemberId);
-  const experiences = await ExperienceService.getMemberExperiences(actualMemberId);
-  const achievements = await AchievementService.getMemberAchievements(actualMemberId);
-  const links = await LinkService.getMemberLinks(actualMemberId);
-  const certifications = await CertificationService.getMemberCertifications(actualMemberId);
-  const projects = await ProjectService.getMemberProjects(actualMemberId);
+  const skills = await SkillService.getMemberSkills(supabase, actualMemberId);
+  const experiences = await ExperienceService.getMemberExperiences(supabase, actualMemberId);
+  const achievements = await AchievementService.getMemberAchievements(supabase, actualMemberId);
+  const links = await LinkService.getMemberLinks(supabase, actualMemberId);
+  const certifications = await CertificationService.getMemberCertifications(supabase, actualMemberId);
+  const projects = await ProjectService.getMemberProjects(supabase, actualMemberId);
   
   const isCurrentUser = user?.id === member.id;
   
@@ -155,9 +159,9 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
                         {member.domain} - Year {member.year_of_study}
                       </div>
                       <div className="flex gap-4 justify-center sm:justify-start">
-                        {links.some(l => l.url?.includes('github')) && (
+                        {links.some((l: Link) => l.url?.includes('github')) && (
                           <a
-                            href={links.find(l => l.url?.includes('github'))?.url}
+                            href={links.find((l: Link) => l.url?.includes('github'))?.url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-white hover:text-green-400 transition-colors"
@@ -165,9 +169,9 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
                             GitHub
                           </a>
                         )}
-                        {links.some(l => l.url?.includes('linkedin')) && (
+                        {links.some((l: Link) => l.url?.includes('linkedin')) && (
                           <a
-                            href={links.find(l => l.url?.includes('linkedin'))?.url}
+                            href={links.find((l: Link) => l.url?.includes('linkedin'))?.url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-white hover:text-green-400 transition-colors"
@@ -282,12 +286,9 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
                   <TabsContent value="projects">
                     <div className="space-y-4 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
                       {projects.length > 0 ? (
-                        projects.map((project) => (
+                        projects.map((project: Project) => (
                           <div key={project.id} className="border-b border-gray-800 pb-4 last:border-0 last:pb-0">
                             <h3 className="text-base font-semibold text-white">{project.name}</h3>
-                            {project.date && (
-                              <p className="text-gray-400 text-xs mt-1">{project.date}</p>
-                            )}
                             {project.description && (
                               <p className="text-gray-300 text-sm mt-2">{project.description}</p>
                             )}
@@ -314,17 +315,11 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
                   <TabsContent value="certifications">
                     <div className="space-y-4 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
                       {certifications.length > 0 ? (
-                        certifications.map((cert) => (
+                        certifications.map((cert: Certification) => (
                           <div key={cert.id} className="border-b border-gray-800 pb-4 last:border-0 last:pb-0">
                             <h3 className="text-base  text-white">{cert.name}</h3>
-                            {cert.issuer && (
-                              <p className="text-green-400 text-sm mt-1">{cert.issuer}</p>
-                            )}
-                            {cert.date && (
-                              <p className="text-gray-400 text-xs mt-1">{cert.date}</p>
-                            )}
-                            {cert.description && (
-                              <p className="text-gray-300 text-sm mt-2">{cert.description}</p>
+                            {cert.issuing_organization && (
+                              <p className="text-green-400 text-sm mt-1">{cert.issuing_organization}</p>
                             )}
                           </div>
                         ))
@@ -348,7 +343,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
               <div className="bg-black rounded-2xl border border-gray-800 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden">
                 <div className="relative">
                   <SkillSection 
-                    skills={skills.map(s => s.name)} 
+                    skills={skills.map((s: Skill) => s.name)} 
                     isEditable={isCurrentUser}
                   />
                 </div>

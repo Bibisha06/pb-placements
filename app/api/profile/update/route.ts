@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import {
   MemberService,
   SkillService,
@@ -11,6 +11,16 @@ import {
 } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
+const createAuthenticatedClient = (token: string): SupabaseClient => {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    }
+  );
+};
+
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get('authorization');
@@ -20,15 +30,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized: No token provided' }, { status: 401 });
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createAuthenticatedClient(token);
 
     const {
       data: { user },
       error,
-    } = await supabase.auth.getUser(token);
+    } = await supabase.auth.getUser();
 
     if (error || !user) {
       console.error('Auth error:', error?.message);
@@ -44,7 +51,6 @@ export async function POST(req: NextRequest) {
       certifications = [],
       projects = [],
       resume_url,
-      isUpdate = false
     } = await req.json();
 
     const memberData = { ...member, id: user.id };
@@ -52,69 +58,69 @@ export async function POST(req: NextRequest) {
       memberData.resume_url = resume_url;
     }
 
-    const existingMember = await MemberService.getMemberById(user.id);
+    const existingMember = await MemberService.getMemberById(supabase, user.id);
     const memberExists = !!existingMember;
 
-    await MemberService.upsertMember(memberData);
+    await MemberService.upsertMember(supabase, memberData);
 
-    await SkillService.removeSkillsByMemberId(user.id);
+    await SkillService.removeSkillsByMemberId(supabase, user.id);
     if (skills && skills.length > 0) {
       const skillIds = await Promise.all(
-        skills.map((name: string) => SkillService.getOrCreateSkill(name))
+        skills.map((name: string) => SkillService.getOrCreateSkill(supabase, name))
       );
       await Promise.all(
-        skillIds.map(skillId => SkillService.addSkillToMember(user.id, skillId))
+        skillIds.map(skillId => skillId && SkillService.addSkillToMember(supabase, user.id, skillId))
       );
     }
 
-    await ExperienceService.removeExperiencesByMemberId(user.id);
+    await ExperienceService.removeExperiencesByMemberId(supabase, user.id);
     if (experiences && experiences.length > 0) {
       const experiencesToInsert = experiences.map((exp: any) => ({
         ...exp,
         member_id: user.id
       }));
-      await ExperienceService.createExperiences(experiencesToInsert);
+      await ExperienceService.createExperiences(supabase, experiencesToInsert);
     }
 
-    await AchievementService.removeAchievementsByMemberId(user.id);
+    await AchievementService.removeAchievementsByMemberId(supabase, user.id);
     if (achievements && achievements.length > 0) {
       const achievementsToInsert = achievements.map((desc: string) => ({
         member_id: user.id,
         description: desc,
         title: 'Achievement',
-        date: new Date(),
+        date: new Date().toISOString(),
       }));
-      await AchievementService.createAchievements(achievementsToInsert);
+      await AchievementService.createAchievements(supabase, achievementsToInsert);
     }
 
-    await LinkService.removeLinksByMemberId(user.id);
+    await LinkService.removeLinksByMemberId(supabase, user.id);
     if (links && links.length > 0) {
       const linksToInsert = links.map((link: any) => ({
         ...link,
         member_id: user.id
       }));
-      await LinkService.createLinks(linksToInsert);
+      await LinkService.createLinks(supabase, linksToInsert);
     }
      // 6. Clear and re-insert certifications (like achievements)
-    await CertificationService.removeCertificationsByMemberId(member.id);
+    await CertificationService.removeCertificationsByMemberId(supabase, user.id);
     if (certifications && certifications.length > 0) {
       const certsToInsert = (certifications as any[])
         .filter((cert: any) => cert.name && cert.name.trim())
         .map((cert: any) => {
           const obj: any = {
             name: cert.name,
-            member_id: member.id,
+            member_id: user.id,
           };
           if (cert.issuing_organization && cert.issuing_organization.trim() !== '') {
             obj.issuing_organization = cert.issuing_organization;
           }
           return obj;
         });
-      await CertificationService.createCertifications(certsToInsert);
+      await CertificationService.createCertifications(supabase, certsToInsert);
     }
 
     // 7. Clear and re-insert projects (like certifications)
-    await ProjectService.removeProjectsByMemberId(member.id);
+    await ProjectService.removeProjectsByMemberId(supabase, user.id);
     if (projects && projects.length > 0) {
       const projectsToInsert = (projects as any[])
         .filter((proj: any) => proj.name && proj.name.trim())
@@ -123,11 +129,11 @@ export async function POST(req: NextRequest) {
             name: proj.name,
             description: proj.description,
             link: proj.link,
-            member_id: member.id,
+            member_id: user.id,
           };
           return obj;
         });
-      await ProjectService.createProjects(projectsToInsert);
+      await ProjectService.createProjects(supabase, projectsToInsert);
     }
 
     const userFolder = `resumes/${user.id}`;
@@ -164,9 +170,9 @@ export async function POST(req: NextRequest) {
       resumeVersions: resumeCount
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating profile:', error);
-    return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to update profile' }, { status: 500 });
   }
 }
 
@@ -179,12 +185,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized: No token provided' }, { status: 401 });
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createAuthenticatedClient(token);
 
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) {
       console.error('Auth error:', error?.message);
@@ -217,7 +220,7 @@ export async function GET(req: NextRequest) {
       count: resumeVersions.length
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching resume versions:', error);
     return NextResponse.json({ error: 'Failed to fetch resume versions' }, { status: 500 });
   }
@@ -232,12 +235,9 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized: No token provided' }, { status: 401 });
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createAuthenticatedClient(token);
 
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) {
       console.error('Auth error:', error?.message);
@@ -262,7 +262,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ message: 'Resume version deleted successfully' });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error deleting resume version:', error);
     return NextResponse.json({ error: 'Failed to delete resume version' }, { status: 500 });
   }
