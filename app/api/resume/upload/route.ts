@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     
     const username = user.user_metadata?.username || user.email?.split('@')[0] || user.id;
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const userFolder = user.id;
+    const userFolder = `resumes/${user.id}`;
     const fileName = `${userFolder}/${username}_${timestamp}.pdf`;
 
     const { data: existingFiles } = await supabase.storage
