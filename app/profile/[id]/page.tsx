@@ -26,7 +26,8 @@ import Image from "next/image";
 import { User } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SkillSection } from "@/components/profile/skill-section";
-
+import { CertificationSection } from "@/components/profile/certification-section";
+import { ProjectSection } from "@/components/profile/project-section";
 
 interface ProfilePageProps {
   params: Promise<{
