@@ -42,7 +42,13 @@ export function ExperienceSection({ experiences, isEditable }: ExperienceSection
             <p className="text-green-400 text-sm mt-1">{experience.company}</p>
             <p className="text-gray-400 text-xs mt-1">{dateRange}</p>
             {experience.description && (
-              <p className="text-gray-300 text-sm mt-2">{experience.description}</p>
+              <ul className="list-disc list-inside text-gray-300 text-sm mt-2 space-y-1">
+                {experience.description
+                  .split(/[•·‣●◦⁃∙]\s*/g)  
+                  .map((point: string, index: number) =>
+                    point.trim() ? <li key={index}>{point.trim()}</li> : null
+                  )}
+              </ul>
             )}
           </div>
         );

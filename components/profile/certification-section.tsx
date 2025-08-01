@@ -9,6 +9,8 @@ interface Certification {
   id: string;
   name: string;
   issuing_organization?: string;
+  description?: string;
+  date?: string;
 }
 
 interface CertificationSectionProps {
@@ -36,20 +38,27 @@ export function CertificationSection({ certifications }: CertificationSectionPro
               key={certification.id}
               className="border rounded-lg p-4 space-y-3"
             >
-              <div className="flex justify-between items-start">
-                <div className="space-y-1">
-                  <h4 className="font-semibold text-lg">{certification.name}</h4>
-                  {certification.issuing_organization && (
-                    <p className="text-muted-foreground">
-                      {certification.issuing_organization}
-                    </p>
-                  )}
-                </div>
-              </div>
+              <h4 className="font-semibold text-lg text-white">{certification.name}</h4>
+
+              {certification.issuing_organization && (
+                <p className="text-green-400 text-sm">
+                  {certification.issuing_organization}
+                </p>
+              )}
+
+              {certification.date && (
+                <p className="text-gray-400 text-xs">
+                  {format(new Date(certification.date), "MMM yyyy")}
+                </p>
+              )}
+
+              {certification.description && (
+                <p className="text-gray-300 text-sm">{certification.description}</p>
+              )}
             </div>
           ))}
         </div>
       </CardContent>
     </Card>
   );
-} 
+}

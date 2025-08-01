@@ -197,7 +197,7 @@ try {
   };
   
   return (
-    <div>
+    <div className="flex items-center gap-2">
       <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
         <Button onClick={handleSendEmail} className="bg-green-500 mr-4 hover:bg-green-600 gap-2">
               <Mail className="h-4 w-4 mr-2" />
