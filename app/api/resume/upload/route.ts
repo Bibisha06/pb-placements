@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { extractTextFromPDF, analyzeWithGemini } from '@/lib/resume-parser';
 import { Buffer } from 'buffer';
 
 export const dynamic = 'force-dynamic';
+
+const createAuthenticatedClient = (token: string): SupabaseClient => {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    }
+  );
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,20 +25,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Unauthorized: No token' }, { status: 401 });
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const supabase = createAuthenticatedClient(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (!user || authError) {
-      console.error('Auth error:', authError?.message);
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
 
     const formData = await request.formData();
-    const resumeFile = formData.get('resume') as File;
+    const resumeFile = formData.get('resume') as File | null;
 
     if (!resumeFile) {
       return NextResponse.json({ success: false, message: 'No resume file provided' }, { status: 400 });
@@ -43,38 +49,25 @@ export async function POST(request: NextRequest) {
     }
 
     const fileBuffer = await resumeFile.arrayBuffer();
-    let extractedText: string;
-    let extractedLinks: string[];
     let parsedData: any;
     
     try {
-      const extractionResult = await extractTextFromPDF(fileBuffer);
-      extractedText = extractionResult.text;
-      extractedLinks = extractionResult.links;
-      if (!extractedText || extractedText.trim().length === 0) {
-        return NextResponse.json({ 
-          success: false, 
-          message: 'Could not extract text from PDF. Please ensure the file contains readable text.' 
-        }, { status: 400 });
+      const { text: extractedText, links: extractedLinks } = await extractTextFromPDF(fileBuffer);
+      if (!extractedText?.trim()) {
+        return NextResponse.json({ success: false, message: 'Could not extract text from PDF.' }, { status: 400 });
       }
       parsedData = await analyzeWithGemini(extractedText, extractedLinks);
-      if (!parsedData || !parsedData.name || !parsedData.email) {
-        return NextResponse.json({ 
-          success: false, 
-          message: 'Failed to parse resume. Please ensure the PDF contains readable text and valid contact information.' 
-        }, { status: 400 });
+      if (!parsedData?.name || !parsedData?.email) {
+        return NextResponse.json({ success: false, message: 'Failed to parse key details from resume.' }, { status: 400 });
       }
     } catch (parseError) {
       console.error('Error parsing resume:', parseError);
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Failed to parse resume. Please check if the PDF is valid and contains readable text.'
-  }, { status: 400 });
+      return NextResponse.json({ success: false, message: 'Failed to parse resume.' }, { status: 400 });
     }
     
     const username = user.user_metadata?.username || user.email?.split('@')[0] || user.id;
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const userFolder = `resumes/${user.id}`;
+    const userFolder = user.id;
     const fileName = `${userFolder}/${username}_${timestamp}.pdf`;
 
     const { data: existingFiles } = await supabase.storage
@@ -100,7 +93,7 @@ export async function POST(request: NextRequest) {
 
     if (uploadError || !data?.path) {
       console.error('Supabase upload error:', uploadError);
-      return NextResponse.json({ success: false, message: 'Failed to upload to Supabase' }, { status: 500 });
+      return NextResponse.json({ success: false, message: 'Failed to upload resume' }, { status: 500 });
     }
 
     const publicResumeUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/resume/${data.path}`;
