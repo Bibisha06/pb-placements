@@ -190,13 +190,13 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-4 lg:flex-col w-full lg:w-auto">
+              <div className="flex flex-col items-center lg:items-start gap-2 w-full lg:w-auto">
                 {isCurrentUser && (
-                  <div className="transform hover:scale-110 transition-all duration-300 w-full lg:w-auto">
+                  <div className="transform hover:scale-110 transition-all duration-300 w:full">
                     <EditProfileButton memberId={member.id} />
                   </div>
                 )}
-                <div className="transform hover:scale-110 transition-all duration-300 w-full lg:w-auto">
+                <div className="transform hover:scale-110 transition-all duration-300 w-full">
                   <ExportProfileButton
                     memberId={member.id}
                     memberName={member.name}
