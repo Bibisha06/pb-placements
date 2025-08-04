@@ -41,9 +41,9 @@ export function ExperienceSection({ experiences, isEditable }: ExperienceSection
           <div key={experience.id} className="border-b border-gray-800 pb-4 last:border-0 last:pb-0">
             <h3 className="text-base font-semibold text-white">{experience.title}</h3>
             <p className="text-green-400 text-sm mt-1">{experience.company}</p>
-            <p className="text-xs mt-1 flex justify-between">
-              <span className="text-gray-400">{experience.role}</span>
-              <span className="text-gray-400">{dateRange}</span>
+            <p className="text-xs text-gray-400 mt-1 flex justify-between">
+              <span>{experience.role}</span>
+              <span>{dateRange}</span>
             </p>
             {experience.description && (
               <ul className="list-disc list-inside text-gray-300 text-sm mt-2 space-y-1">
