@@ -8,6 +8,7 @@ interface Experience {
   id: string;
   title: string;
   company: string;
+  role: string;
   start_date: string;
   end_date: string | null;
   description: string;
@@ -40,7 +41,10 @@ export function ExperienceSection({ experiences, isEditable }: ExperienceSection
           <div key={experience.id} className="border-b border-gray-800 pb-4 last:border-0 last:pb-0">
             <h3 className="text-base font-semibold text-white">{experience.title}</h3>
             <p className="text-green-400 text-sm mt-1">{experience.company}</p>
-            <p className="text-gray-400 text-xs mt-1">{dateRange}</p>
+            <p className="text-xs mt-1 flex justify-between">
+              <span className="text-gray-400">{experience.role}</span>
+              <span className="text-gray-400">{dateRange}</span>
+            </p>
             {experience.description && (
               <ul className="list-disc list-inside text-gray-300 text-sm mt-2 space-y-1">
                 {experience.description
