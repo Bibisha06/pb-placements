@@ -115,7 +115,14 @@ function DirectoryContent() {
         searchParams.getAll('skills').forEach(skill => {
           queryParams.append('skills', skill);
         });
-        const response = await fetch(`/api/directory/search?${queryParams.toString()}`);
+        queryParams.append('_t', Date.now().toString());
+        const response = await fetch(`/api/directory/search?${queryParams.toString()}`, {
+        cache: 'no-store',
+          headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+          }
+        });
         const data = await response.json();
         if (!response.ok) {
           throw new Error(data.message || 'Failed to fetch members');
