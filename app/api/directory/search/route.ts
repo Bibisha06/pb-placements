@@ -12,6 +12,7 @@ const convertYearToNumber = (year: string): number => {
 };
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,15 +40,22 @@ export async function GET(request: NextRequest) {
     // Fetch filtered members
     const results = await MemberService.searchMembers(supabase, search, domains, years, skills);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       results,
       count: results.length,
     });
+
+ 
+    response.headers.set('Cache-Control','no-cache,no-store,must-revalidate,max-age=0');
+    response.headers.set('Pragma','no-cache');
+    response.headers.set('Expires','0');
+
+    return response;
   } catch (error: any) {
     console.error('Error searching directory:', error);
 
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       {
         success: false,
         message: 'Failed to search directory',
@@ -55,5 +63,11 @@ export async function GET(request: NextRequest) {
       },
       { status: 500 }
     );
+
+    errorResponse.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+    errorResponse.headers.set('Pragma', 'no-cache');
+    errorResponse.headers.set('Expires', '0');
+
+    return errorResponse;
   }
 }
