@@ -117,10 +117,11 @@ function DirectoryContent() {
         });
         queryParams.append('_t', Date.now().toString());
         const response = await fetch(`/api/directory/search?${queryParams.toString()}`, {
-        cache: 'no-store',
+          cache: 'reload',
           headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
+            'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+            'Pragma': 'no-cache',
+            'Expires': '0'
           }
         });
         const data = await response.json();
