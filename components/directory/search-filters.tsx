@@ -175,7 +175,7 @@ export function SearchFilters({ allSkills, domains, years }: SearchFiltersProps)
                   className="mb-2 px-2 py-1 border rounded w-full"
                 />
                 <div className="max-h-48 overflow-y-auto flex flex-col gap-1">
-                  {filteredSkills.slice(0, 10).map(skill => (
+                  {filteredSkills.map(skill => (
                     <button
                       key={skill}
                       className={`text-left px-2 py-1 rounded hover:bg-muted w-full ${selectedSkills[0] === skill ? 'bg-primary text-primary-foreground' : ''}`}
@@ -217,7 +217,7 @@ export function SearchFilters({ allSkills, domains, years }: SearchFiltersProps)
                   className="mb-2 px-2 py-1 border rounded w-full"
                 />
                 <div className="max-h-48 overflow-y-auto flex flex-col gap-1">
-                  {filteredDomains.slice(0, 10).map(domain => (
+                  {filteredDomains.map(domain => (
                     <button
                       key={domain}
                       className={`text-left px-2 py-1 rounded hover:bg-muted w-full ${selectedDomains[0] === domain ? 'bg-primary text-primary-foreground' : ''}`}
