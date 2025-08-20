@@ -136,7 +136,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
         {/* Profile Header Card */}
         <div className="mb-8 transform hover:scale-[1.02] transition-all duration-500">
           <div className="bg-black rounded-3xl border border-gray-800 shadow-2xl p-6 md:p-6">
-            <div className="flex flex-col lg:flex-row gap-6 items-start">
+            <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-end">
               {/* Profile Info */}
               <div className="flex-1 w-full">
                 <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start">
