@@ -49,8 +49,8 @@ function PageContent() {
       </div>
       {/* Black overlay for readability */}
       <div className="absolute inset-0 z-10 bg-black/10 pointer-events-none" />
-      <div className="relative z-20 flex flex-col justify-center">
-        <div>
+      <div className="relative z-20 flex flex-col min-h-screen">
+        <div className="flex-1 flex flex-col justify-center">
           <HeroSection />
         </div>
         <div className="pb-8 md:pb-12">
