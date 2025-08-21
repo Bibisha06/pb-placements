@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FileText, Upload, Trash2, Download, Plus, Calendar } from "lucide-react";
+import { FileText, Upload, Trash2, Download, Plus, Calendar, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -31,6 +32,99 @@ interface ResumeSectionProps {
   isEditable?: boolean;
   userId?: string;
   displayFileName?: string;
+}
+function ResumeModal({ resumeUrl, fileName, displayName }: { 
+  resumeUrl: string; 
+  fileName: string;
+  displayName: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const { toast } = useToast();
+
+  const handleViewResume = async () => {
+    setIsLoading(true);
+    setError(false);
+    
+    try {
+      const res = await fetch(resumeUrl, { method: "HEAD" });
+      if (!res.ok) {
+        throw new Error('Resume not accessible');
+      }
+      setIsOpen(true);
+    } catch (error) {
+      setError(true);
+      toast({
+        title: "Resume not found",
+        description: "Unable to load the resume. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleViewResume}
+        disabled={isLoading}
+      >
+        <Eye className="h-4 w-4 mr-1" />
+        {isLoading ? 'Loading...' : 'View'}
+      </Button>
+
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-6xl w-[98vw] h-[98vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="flex-shrink-0 px-4 py-2 pr-12 border-b bg-background/95">
+            <div className="flex items-center justify-between w-full">
+              <DialogTitle className="flex items-center gap-2 text-base flex-1 min-w-0">
+                <FileText className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">{displayName}</span>
+              </DialogTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 ml-4"
+                asChild
+              >
+                <a href={resumeUrl} download={displayName}>
+                  <Download className="h-3 w-3 mr-1" />
+                  Download
+                </a>
+              </Button>
+            </div>
+          </DialogHeader>
+          
+          <div className="flex-1 min-h-0 bg-white">
+            {error ? (
+              <div className="flex items-center justify-center h-full bg-background">
+                <div className="text-center">
+                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-lg font-medium mb-2">Unable to load resume</p>
+                  <p className="text-sm text-muted-foreground">
+                    The resume file could not be displayed. Try downloading it instead.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <iframe
+                src={`${resumeUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                className="w-full h-full border-0 block"
+                title={displayName}
+                style={{ margin: 0, padding: 0 }}
+                onError={() => setError(true)}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }
 
 export function ResumeSection({ resumeUrl, isEditable, userId, displayFileName }: ResumeSectionProps) {
@@ -229,34 +323,11 @@ export function ResumeSection({ resumeUrl, isEditable, userId, displayFileName }
               Last updated: {new Date().toLocaleDateString()}
             </p>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={async () => {
-              if (!resumeUrl) {
-                toast({
-                  title: "Resume not found",
-                  description: "User has no versions of resumes to view and export.",
-                  variant: "destructive",
-                  duration: 5000,
-                });
-                return;
-              }
-              const res = await fetch(resumeUrl, { method: "HEAD" });
-              if (res.ok) {
-                window.open(resumeUrl, "_blank", "noopener,noreferrer");
-              } else {
-                toast({
-                  title: "Resume not found",
-                  description: "User has no versions of resumes to view and export.",
-                  variant: "destructive",
-                  duration: 5000,
-                });
-              }
-            }}
-          >
-            View
-          </Button>
+          <ResumeModal 
+            resumeUrl={resumeUrl} 
+            fileName="Resume.pdf"
+            displayName={displayFileName || 'Resume.pdf'}
+          />
         </div>
       </div>
     );
@@ -321,7 +392,7 @@ export function ResumeSection({ resumeUrl, isEditable, userId, displayFileName }
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="text-sm font-medium truncate">
-                          {file.name}
+                          {displayFileName || file.name}
                         </p>
                         <Badge variant={index === 0 ? "default" : "secondary"} className="text-xs">
                           {getVersionNumber(index)} {index === 0 && "(Latest)"}
@@ -337,8 +408,14 @@ export function ResumeSection({ resumeUrl, isEditable, userId, displayFileName }
                     </div>
 
                     <div className="flex items-center gap-2">
+                      <ResumeModal 
+                        resumeUrl={file.publicUrl} 
+                        fileName={file.name}
+                        displayName={displayFileName || file.name}
+                      />
+                      
                       <Button variant="ghost" size="sm" asChild>
-                        <a href={file.publicUrl} target="_blank" rel="noopener noreferrer">
+                        <a href={file.publicUrl} download={displayFileName || file.name}>
                           <Download className="h-4 w-4" />
                         </a>
                       </Button>
