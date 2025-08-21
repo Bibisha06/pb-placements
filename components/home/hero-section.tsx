@@ -42,7 +42,7 @@ export function HeroSection() {
           </motion.div>
           
           <motion.form
-            className="flex w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg mx-auto px-4"
+            className="w-full mx-auto px-2"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.5 }}
