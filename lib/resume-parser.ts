@@ -146,7 +146,7 @@ export async function extractTextFromPDF(pdfBuffer: ArrayBuffer): Promise<{ text
   try {
     const pdfParse = (await import('pdf-parse')).default;
     const pdfData = await pdfParse(Buffer.from(pdfBuffer));
-    const extractedText = pdfData.text;
+    const extractedText = await cleanTextWithAI(pdfData.text);
     const extractedLinks = await extractLinksFromPDF(pdfBuffer);
     return {
       text: extractedText,
@@ -198,7 +198,72 @@ async function retryWithDelay<T>(
   
   throw lastError!;
 }
+/** Uses Gemini to add spacing to concatenated text*/
+async function cleanTextWithAI(text: string): Promise<string> {
+  return retryWithDelay(async () => {
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    
+    const prompt = `
+     Fix this resume text with strict requirements:
+     SECTION IDENTIFICATION:
+        - Lines starting with "Description", "Experience", etc. are section headers
+        - ALL lines in Description section must start with bullet points
+        - Only text after a blank line following section headers can be bullet points
 
+     1. BULLET POINTS (•, *, -):
+        - NEVER split any bullet point across lines
+        - Combine any bullet fragments into complete single-line bullets
+        - Preserve the original bullet character (•, *, or -)
+        - Only fix spacing BETWEEN words, never within proper nouns/technical terms
+        - If the first point in regular text does not start with a bullet, add a bullet point at the start of the first line.
+        - If a bullet point is missing a bullet character, add it at the start of the line.
+        - ALL the points under DESCRIPTION should START with a BULLET character.
+
+     2. LINE BREAKS:
+        - Remove ALL mid-sentence line breaks
+        - Keep exactly one line break between distinct bullet points
+        - Keep exactly two line breaks between sections
+
+     3. SPACING:
+        - Add missing spaces between words ("ImplementedAES-200" → "Implemented AES-200")
+        - Also add a space when a lowercase letter is immediately followed by an uppercase letter in all sections of the resume.
+        - Never modify: 
+          * Technical terms ("RESTful", "CRUD")
+          * Proper nouns ("GLibC", "PBKDF2")
+          * Numbers/dates ("2000+", "2023-2024")
+          * Project names ("ELISA project")
+
+     4. SPECIAL CASES:
+        - Preserve all hyphenated terms as-is ("end-to-end")
+        - Keep all acronyms intact ("APIs" not "A P Is")
+        - Maintain exact company/product names ("Intel/Mobileye")
+
+     REQUIRED OUTPUT FORMAT:
+     - Each bullet point exactly one line
+     - Add bullet to first point.
+     - No trailing spaces
+     - No empty lines between bullets
+     - Exactly one blank line between sections
+
+      Examples:
+      - "VSCodeand" should become "VSCode and"
+      - "developingcross-platform" should become "developing cross-platform" 
+      - "Serverusing" should become "Server using"
+
+      Text to fix:
+      ${text}
+
+      Return only the corrected text with proper spacing, no additional commentary.
+      `;
+
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    return response.text().trim();
+  }, 3, 3000).catch((error) => {
+    console.error('Error cleaning text with AI:', error);
+    return text;
+  });
+}
 /**
  * Uses Gemini API to analyze the resume text and extract relevant information
  */
@@ -331,7 +396,8 @@ export async function parseResumeText(text: string, userId: string): Promise<Par
   }
 
   try {
-    const parsedData = await analyzeWithGemini(text);
+    const cleanedText = await cleanTextWithAI(text);
+    const parsedData = await analyzeWithGemini(cleanedText);
     await updateUserProfile(userId, parsedData.skills);
     return parsedData;
   } catch (error) {

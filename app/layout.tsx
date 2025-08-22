@@ -20,12 +20,26 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <head>
+        {/* Google tag (gtag.js) */}
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-QP3414742W"></script>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-QP3414742W');
+            `,
+          }}
+        />
+      </head>
+      <body className={`${inter.className} overflow-x-clip w-full max-w-[100vw] min-w-0`}>
         <Providers>
           <AuthListener />
-          <div className="flex min-h-screen flex-col">
+          <div className="flex min-h-screen flex-col w-full max-w-[100vw] min-w-0 overflow-x-clip">
             <Navbar />
-            <main className="flex-1">
+            <main className="flex-1 w-full max-w-[100vw] min-w-0 overflow-x-clip">
               {children}
             </main>
             <Footer />

@@ -35,6 +35,11 @@ interface ProfilePageProps {
   }>;
 }
 
+function formatResumeDisplayName(fullName: string, year: number): string {
+  const name = fullName.toLowerCase().replace(/[^a-z0-9]+/g, '_')
+  return `${name}_${year}yr_resume.pdf`;
+}
+
 export async function generateMetadata({ params }: ProfilePageProps): Promise<Metadata> {
   const { id } = await params;
   const supabase = createServerComponentClient({ cookies });
@@ -111,6 +116,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   const projects = await ProjectService.getMemberProjects(supabase, actualMemberId);
   
   const isCurrentUser = user?.id === member.id;
+  const displayFileName = formatResumeDisplayName(member.name, member.year_of_study);
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black relative overflow-hidden">
@@ -130,7 +136,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
         {/* Profile Header Card */}
         <div className="mb-8 transform hover:scale-[1.02] transition-all duration-500">
           <div className="bg-black rounded-3xl border border-gray-800 shadow-2xl p-6 md:p-6">
-            <div className="flex flex-col lg:flex-row gap-6 items-start">
+            <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-end">
               {/* Profile Info */}
               <div className="flex-1 w-full">
                 <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start">
@@ -332,6 +338,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
                   <ResumeSection 
                     resumeUrl={member.resume_url} 
                     isEditable={isCurrentUser}
+                    displayFileName={displayFileName}
                   />
                 </div>
               </div>
